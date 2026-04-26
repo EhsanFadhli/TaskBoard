@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TaskBoard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Cabinet+Grotesk:wght@400;500;700;800;900&display=swap');
+
+:root{
+  --bg:#0e0e10;--surface:#18181c;--surface2:#222228;--border:#2e2e38;
+  --accent:#c8f060;--accent2:#60b4f0;--accent3:#f06090;
+  --text:#e8e8f0;--text-muted:#7878a0;--text-dim:#4a4a68;--col-w:282px;
+}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none}
+.selectable,.selectable *,.field input,.field textarea,.field select,.col-name,
+#format-modal pre{user-select:text;-webkit-user-select:text}
+body{font-family:'Cabinet Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* HEADER */
+header{display:flex;align-items:center;gap:14px;padding:11px 22px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;-webkit-app-region:drag}
+header>*{-webkit-app-region:no-drag}
+.logo-wrap{display:flex;flex-direction:column;cursor:pointer;border-radius:6px;padding:4px 8px;margin:-4px -8px;transition:background .15s}
+.logo-wrap:hover{background:rgba(200,240,96,.08)}
+.logo-wrap:active{background:rgba(200,240,96,.14)}
+.logo{font-size:1.05rem;font-weight:900;letter-spacing:-.5px;color:var(--accent);line-height:1}
+.logo span{color:var(--text-muted);font-weight:400}
+.logo-sub{font-family:'DM Mono',monospace;font-size:.55rem;color:var(--text-dim);letter-spacing:.3px;margin-top:2px}
+.header-mid{flex:1;display:flex;align-items:center;gap:10px}
+.file-badge{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text-muted);background:var(--surface2);border:1px solid var(--border);padding:3px 9px;border-radius:5px;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:none}
+.unsaved-dot{width:7px;height:7px;border-radius:50%;background:var(--accent3);display:none;flex-shrink:0;box-shadow:0 0 6px var(--accent3)}
+.unsaved-label{font-family:'DM Mono',monospace;font-size:.66rem;color:var(--accent3);display:none}
+.undo-badge{font-family:'DM Mono',monospace;font-size:.64rem;color:var(--text-dim);background:var(--surface2);border:1px solid var(--border);padding:2px 7px;border-radius:10px;display:none}
+.header-actions{display:flex;align-items:center;gap:8px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:7px;font-family:'Cabinet Grotesk',sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--text);border-color:var(--text-dim);background:var(--surface2)}
+.btn-accent{background:var(--accent);color:#0e0e10}
+.btn-accent:hover{background:#d9ff70;transform:translateY(-1px)}
+.btn-save{background:rgba(200,240,96,.12);color:var(--accent);border:1px solid rgba(200,240,96,.3)}
+.btn-save:hover{background:rgba(200,240,96,.22)}
+.btn-dim{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border)}
+.btn-dim:hover{color:var(--text)}
+.btn-danger{background:rgba(240,96,144,.12);color:var(--accent3);border:1px solid rgba(240,96,144,.3)}
+.btn-danger:hover{background:rgba(240,96,144,.22)}
+.btn-sm{padding:4px 9px;font-size:.74rem;border-radius:5px}
+.kbd{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-dim);background:var(--surface2);border:1px solid var(--border);padding:2px 5px;border-radius:4px;margin-left:2px}
+
+/* LANDING */
+#landing{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:calc(100vh - 49px);gap:22px;padding:40px;text-align:center;transition:background .2s}
+#landing.drag-over{background:rgba(200,240,96,.04)}
+#landing.hidden{display:none}
+.dz-icon{font-size:2.8rem;filter:grayscale(1) opacity(.3)}
+.dz-title{font-size:1.4rem;font-weight:800}
+.dz-sub{font-size:.85rem;color:var(--text-muted);max-width:320px;line-height:1.6}
+.dz-actions{display:flex;gap:10px;margin-top:4px}
+.recent-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;width:100%;max-width:460px;text-align:left}
+.recent-wrap h4{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:12px}
+.recent-list{display:flex;flex-direction:column;gap:6px}
+.recent-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);cursor:pointer;transition:all .15s}
+.recent-item:hover{border-color:var(--accent);background:rgba(200,240,96,.05)}
+.recent-icon{font-size:1.1rem;flex-shrink:0}
+.recent-info{flex:1;min-width:0}
+.recent-name{font-size:.82rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-path{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--text-dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-meta{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-dim);margin-top:1px}
+.recent-del{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:.9rem;padding:2px 5px;border-radius:4px;opacity:0;transition:opacity .15s,color .15s;flex-shrink:0}
+.recent-item:hover .recent-del{opacity:1}
+.recent-del:hover{color:var(--accent3)}
+.recent-empty{font-size:.78rem;color:var(--text-dim);font-style:italic;padding:4px 0}
+.dz-format{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;text-align:left;max-width:460px;width:100%}
+.dz-format h4{font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.dz-format pre{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--accent);line-height:1.8;white-space:pre-wrap}
+
+/* BOARD */
+#board-wrap{display:none;flex-direction:column;height:calc(100vh - 49px)}
+#board-wrap.visible{display:flex}
+.board-toolbar{display:flex;align-items:center;gap:10px;padding:10px 22px;border-bottom:1px solid var(--border);background:var(--surface)}
+.board-title{font-size:.92rem;font-weight:800}
+.task-count{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text-muted);background:var(--surface2);border:1px solid var(--border);padding:2px 8px;border-radius:20px}
+#board{display:flex;gap:14px;padding:18px 22px;overflow-x:auto;flex:1;align-items:flex-start}
+
+/* COLUMN */
+.column{width:var(--col-w);min-width:var(--col-w);border-radius:12px;display:flex;flex-direction:column;max-height:100%;overflow:hidden;transition:box-shadow .15s;background:color-mix(in srgb,var(--col-color,#888) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--col-color,#888) 28%,var(--border))}
+.column.col-drop-target{box-shadow:0 0 0 2px var(--accent)}
+.column.is-dragging-col{opacity:.3;pointer-events:none}
+.col-header{display:flex;align-items:center;gap:7px;padding:12px 12px 10px;position:relative;border-bottom:1px solid color-mix(in srgb,var(--col-color,#888) 20%,var(--border));background:color-mix(in srgb,var(--col-color,#888) 16%,var(--surface))}
+.col-drag-handle{width:18px;height:24px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;cursor:grab;flex-shrink:0;opacity:0;transition:opacity .15s}
+.col-header:hover .col-drag-handle{opacity:1}
+.col-drag-handle span{display:block;width:10px;height:2px;border-radius:1px;background:color-mix(in srgb,var(--col-color,#fff) 50%,var(--text-dim));pointer-events:none}
+.col-color-btn{width:12px;height:12px;border-radius:50%;background:var(--col-color,#888);border:2px solid rgba(255,255,255,.2);cursor:pointer;flex-shrink:0;transition:transform .15s,border-color .15s}
+.col-color-btn:hover{transform:scale(1.3);border-color:rgba(255,255,255,.55)}
+.col-name{font-size:.8rem;font-weight:800;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;outline:none;background:transparent;border:none;color:color-mix(in srgb,var(--col-color,var(--text)) 75%,var(--text));cursor:text;font-family:'Cabinet Grotesk',sans-serif;letter-spacing:-.2px}
+.col-count{font-family:'DM Mono',monospace;font-size:.68rem;color:color-mix(in srgb,var(--col-color,#fff) 65%,var(--text-dim));background:color-mix(in srgb,var(--col-color,#fff) 10%,var(--surface2));border:1px solid color-mix(in srgb,var(--col-color,#fff) 18%,var(--border));padding:1px 7px;border-radius:10px;flex-shrink:0}
+.col-del{opacity:0;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:.95rem;padding:0 2px;transition:opacity .15s,color .15s;line-height:1}
+.col-header:hover .col-del{opacity:1}
+.col-del:hover{color:var(--accent3)}
+.col-tasks{padding:8px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:7px;min-height:56px}
+.col-add-btn{margin:0 8px 8px;padding:6px;background:none;border:1px dashed color-mix(in srgb,var(--col-color,#fff) 22%,var(--border));border-radius:7px;color:color-mix(in srgb,var(--col-color,#fff) 45%,var(--text-dim));font-size:.75rem;font-weight:700;font-family:'Cabinet Grotesk',sans-serif;cursor:pointer;transition:all .15s;width:calc(100% - 16px)}
+.col-add-btn:hover{border-style:solid;color:color-mix(in srgb,var(--col-color,#fff) 75%,var(--text-muted));background:color-mix(in srgb,var(--col-color,#fff) 8%,var(--surface2))}
+
+/* TASK CARD */
+.task-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px 10px 10px;position:relative;display:flex;transition:box-shadow .15s,border-color .15s}
+.task-card:hover{border-color:var(--text-dim);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.task-card.is-dragging-task{opacity:.3;pointer-events:none}
+.task-card.task-drop-above{box-shadow:0 -2px 0 0 var(--accent)}
+.task-card.task-drop-below{box-shadow:0 2px 0 0 var(--accent)}
+.task-drag-handle{width:14px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;cursor:grab;opacity:0;transition:opacity .15s;margin-right:7px}
+.task-card:hover .task-drag-handle{opacity:1}
+.task-drag-handle span{display:block;width:8px;height:2px;border-radius:1px;background:var(--text-dim);pointer-events:none}
+.task-body{flex:1;min-width:0}
+.task-col-bar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:8px 0 0 8px;background:var(--col-color,transparent);opacity:.65}
+.task-title{font-size:.82rem;font-weight:700;color:var(--text);line-height:1.4;margin-bottom:3px}
+.task-desc-preview{font-size:.74rem;color:var(--text-muted);line-height:1.5;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-tags{display:flex;flex-wrap:wrap;gap:3px}
+.tag{font-family:'DM Mono',monospace;font-size:.62rem;padding:1px 6px;border-radius:4px;border:1px solid}
+.task-priority{position:absolute;top:8px;right:8px;font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:2px 5px;border-radius:4px}
+.priority-high{background:rgba(240,96,144,.15);color:var(--accent3)}
+.priority-med{background:rgba(96,180,240,.15);color:var(--accent2)}
+.priority-low{background:rgba(200,240,96,.1);color:var(--accent)}
+.task-del{position:absolute;bottom:7px;right:8px;opacity:0;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:.72rem;transition:opacity .15s,color .15s}
+.task-card:hover .task-del{opacity:1}
+.task-del:hover{color:var(--accent3)}
+
+/* DRAG GHOST */
+#drag-ghost{position:fixed;pointer-events:none;z-index:9999;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:.9;transform:rotate(2deg);display:none}
+
+/* ADD COL BTN */
+.add-col-btn{min-width:180px;height:56px;background:transparent;border:1.5px dashed var(--border);border-radius:12px;color:var(--text-dim);font-size:.8rem;font-weight:700;font-family:'Cabinet Grotesk',sans-serif;cursor:pointer;transition:all .15s;white-space:nowrap;align-self:flex-start;flex-shrink:0}
+.add-col-btn:hover{color:var(--text-muted);border-color:var(--text-dim);background:var(--surface)}
+
+/* MODALS */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px;width:440px;max-width:calc(100vw - 32px);animation:popIn .18s cubic-bezier(.34,1.56,.64,1)}
+@keyframes popIn{from{opacity:0;transform:scale(.93) translateY(8px)}to{opacity:1;transform:none}}
+.modal h3{font-size:.95rem;font-weight:800;margin-bottom:16px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:5px}
+.field input,.field textarea,.field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 11px;color:var(--text);font-family:'Cabinet Grotesk',sans-serif;font-size:.83rem;outline:none;transition:border-color .15s}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.field textarea{resize:vertical;min-height:80px;line-height:1.5}
+.field select option{background:var(--surface2)}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+
+/* detail */
+#detail-modal .modal{width:500px}
+.detail-col-chip{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:20px;background:color-mix(in srgb,var(--chip-color,#888) 18%,var(--surface2));color:color-mix(in srgb,var(--chip-color,#888) 80%,var(--text));border:1px solid color-mix(in srgb,var(--chip-color,#888) 30%,var(--border));white-space:nowrap;display:inline-flex;margin-bottom:8px}
+.detail-title{font-size:1.1rem;font-weight:800;line-height:1.35;margin-bottom:12px}
+.detail-desc{font-size:.82rem;color:var(--text-muted);line-height:1.65;margin-bottom:12px;white-space:pre-wrap}
+.detail-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.detail-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+
+/* confirm */
+#confirm-modal .modal{width:360px}
+.confirm-body{text-align:center;padding:6px 0 2px}
+.confirm-icon{font-size:2.2rem;margin-bottom:10px}
+.confirm-msg{font-size:.86rem;color:var(--text-muted);line-height:1.55;margin-bottom:10px}
+.confirm-subject{display:inline-block;font-size:.8rem;font-weight:800;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 11px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px}
+#confirm-modal .modal-footer{justify-content:center;gap:12px}
+
+/* palette */
+.palette-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:9px}
+.p-swatch{aspect-ratio:1;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s}
+.p-swatch:hover{transform:scale(1.18)}
+.p-swatch.selected{border-color:#fff;transform:scale(1.1);box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+.palette-custom{display:flex;align-items:center;gap:10px;margin-top:4px}
+.palette-custom label{font-size:.68rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);white-space:nowrap}
+.palette-custom input[type="color"]{width:32px;height:24px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;padding:2px}
+.palette-preview{flex:1;height:5px;border-radius:3px;transition:background .2s}
+.col-color-popover{position:absolute;top:calc(100% + 5px);left:0;z-index:500;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px;width:208px;box-shadow:0 10px 36px rgba(0,0,0,.6);animation:popIn .15s cubic-bezier(.34,1.56,.64,1)}
+.col-color-popover .palette-grid{grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:7px}
+.col-color-popover .p-swatch{border-radius:5px}
+.pop-custom{display:flex;align-items:center;gap:7px}
+.pop-custom label{font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--text-muted)}
+.pop-custom input[type="color"]{width:26px;height:20px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;padding:1px}
+
+#format-modal pre{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:.7rem;color:var(--accent);white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;line-height:1.8}
+
+.t0{border-color:rgba(200,240,96,.4);color:#c8f060}
+.t1{border-color:rgba(96,180,240,.4);color:#60b4f0}
+.t2{border-color:rgba(240,96,144,.4);color:#f06090}
+.t3{border-color:rgba(240,192,96,.4);color:#f0c060}
+.t4{border-color:rgba(160,96,240,.4);color:#a060f0}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+#toast{position:fixed;bottom:22px;right:22px;background:var(--surface);border:1px solid var(--accent);color:var(--accent);font-size:.78rem;font-weight:700;padding:9px 16px;border-radius:8px;z-index:9999;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;font-family:'DM Mono',monospace}
+#toast.show{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap" id="logo-home" title="Go to home">
+    <div class="logo">Task<span>Board</span></div>
+    <div class="logo-sub">by ClaudeKrul</div>
+  </div>
+  <div class="header-mid">
+    <span class="file-badge" id="file-badge"></span>
+    <div class="unsaved-dot" id="unsaved-dot"></div>
+    <span class="unsaved-label" id="unsaved-label">Unsaved changes</span>
+    <span class="undo-badge" id="undo-badge"></span>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" id="btn-new">📂 Open</button>
+    <button class="btn btn-save" id="btn-export" style="display:none">💾 Save <span class="kbd">Ctrl+S</span></button>
+    <button class="btn btn-ghost" id="btn-preview" style="display:none">👁 Preview</button>
+    <button class="btn btn-accent" id="btn-add-task" style="display:none">+ Task</button>
+  </div>
+</header>
+
+<div id="landing">
+  <div class="dz-icon">📋</div>
+  <div class="dz-title">Drop your task file here</div>
+  <div class="dz-sub">Open a <code style="color:var(--accent);font-family:'DM Mono',monospace">.txt</code> task file or start fresh — everything stays on your machine.</div>
+  <div class="dz-actions">
+    <button class="btn btn-accent" id="btn-pick-file">📂 Open File</button>
+    <button class="btn btn-dim" id="btn-create-new">✦ New Board</button>
+  </div>
+  <div class="recent-wrap" id="recent-wrap">
+    <h4>🕒 Recent Files</h4>
+    <div class="recent-list" id="recent-list"></div>
+  </div>
+  <div class="dz-format">
+    <h4>📄 File Format</h4>
+    <pre># Project Name
+; col-color #c8f060
+
+## Column Name
+### Task Title
+description here
+@tag1 @tag2 !high
+
+## Another Column
+### Another Task
+!low</pre>
+  </div>
+</div>
+
+<div id="board-wrap">
+  <div class="board-toolbar">
+    <span class="board-title" id="board-title">Untitled Board</span>
+    <span class="task-count" id="task-count">0 tasks</span>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <button class="btn btn-dim" id="btn-add-col">+ Column</button>
+    </div>
+  </div>
+  <!-- #board is the ONE stable container. All event delegation roots here. -->
+  <div id="board"></div>
+</div>
+
+<div id="drag-ghost"></div>
+
+<!-- CONFIRM -->
+<div class="modal-bg" id="confirm-modal">
+  <div class="modal">
+    <div class="confirm-body">
+      <div class="confirm-icon" id="confirm-icon">⚠️</div>
+      <div class="confirm-msg" id="confirm-msg">Are you sure?</div>
+      <div class="confirm-subject" id="confirm-subject" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="confirm-cancel-btn">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL -->
+<div class="modal-bg" id="detail-modal">
+  <div class="modal">
+    <div class="selectable">
+      <div id="detail-col-chip" class="detail-col-chip"></div>
+      <div class="detail-title" id="detail-title"></div>
+      <div class="detail-desc" id="detail-desc" style="display:none"></div>
+      <div class="detail-meta" id="detail-meta"></div>
+    </div>
+    <div class="detail-footer">
+      <button class="btn btn-ghost" id="detail-close">Close</button>
+      <button class="btn btn-danger btn-sm" id="detail-delete">🗑 Delete</button>
+      <button class="btn btn-accent" id="detail-edit">✏️ Edit</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASK FORM -->
+<div class="modal-bg" id="task-modal">
+  <div class="modal">
+    <h3 id="task-modal-title">New Task</h3>
+    <div class="field"><label>Title</label><input type="text" id="t-title" placeholder="Task title…"></div>
+    <div class="field"><label>Description</label><textarea id="t-desc" placeholder="Optional description…"></textarea></div>
+    <div class="field"><label>Column</label><select id="t-col"></select></div>
+    <div class="field"><label>Priority</label>
+      <select id="t-priority">
+        <option value="">— none —</option>
+        <option value="high">🔴 High</option>
+        <option value="med">🔵 Medium</option>
+        <option value="low">🟢 Low</option>
+      </select>
+    </div>
+    <div class="field"><label>Tags (space-separated)</label><input type="text" id="t-tags" placeholder="frontend bug urgent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="task-cancel">Cancel</button>
+      <button class="btn btn-accent" id="task-save">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW BOARD -->
+<div class="modal-bg" id="newboard-modal">
+  <div class="modal">
+    <h3>✦ New Board</h3>
+    <div class="field"><label>Project / Board Name</label><input type="text" id="nb-name" placeholder="e.g. ABC's Website"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="nb-cancel">Cancel</button>
+      <button class="btn btn-accent" id="nb-create">Create Board</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD COLUMN -->
+<div class="modal-bg" id="col-modal">
+  <div class="modal">
+    <h3>New Column</h3>
+    <div class="field"><label>Column Name</label><input type="text" id="c-name" placeholder="e.g. In Review"></div>
+    <div class="field"><label>Column Color</label>
+      <div class="palette-grid" id="modal-palette"></div>
+      <div class="palette-custom">
+        <label>Custom</label>
+        <input type="color" id="modal-custom-color">
+        <div class="palette-preview" id="modal-color-preview"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="col-cancel">Cancel</button>
+      <button class="btn btn-accent" id="col-save">Create Column</button>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW -->
+<div class="modal-bg" id="format-modal">
+  <div class="modal" style="width:520px">
+    <h3>📄 File Preview</h3>
+    <p style="font-size:.75rem;color:var(--text-muted);margin-bottom:12px">Exact content that will be written to your .txt file.</p>
+    <pre id="preview-content"></pre>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="preview-close">Close</button>
+      <button class="btn btn-save" id="preview-save-btn">💾 Save File</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════
+//  ELECTRON
+// ═══════════════════════════════════════════════
+const ipcRenderer = (typeof require !== 'undefined') ? require('electron').ipcRenderer : null;
+const fsModule    = (typeof require !== 'undefined') ? require('fs') : null;
+
+// ═══════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════
+const PALETTE = [
+  '#c8f060','#60b4f0','#f06090','#f0c060','#a060f0',
+  '#60f0c0','#f09060','#7be87b','#e860e8','#f04848',
+  '#38c8f0','#f0e840','#ff9f50','#50d8b0','#c8c8c8','#6080b0'
+];
+const TAG_COLORS  = ['t0','t1','t2','t3','t4'];
+const MAX_RECENT  = 8;
+const RECENT_KEY  = 'taskboard_recent';
+const UNDO_LIMIT  = 50;
+
+// ═══════════════════════════════════════════════
+//  STATE  (plain data — no DOM refs stored here)
+// ═══════════════════════════════════════════════
+let state = { title:'Untitled Board', columns:[], tasks:[] };
+let currentFilePath = null;
+let currentFileName = 'tasks.txt';
+let hasUnsaved      = false;
+let tagColorMap     = {};
+let tagColorIdx     = 0;
+let selectedColColor = PALETTE[0];
+let activePopover   = null;
+let editingTaskId   = null;
+let detailTaskId    = null;  // which task is in the detail modal
+let undoStack       = [];
+let redoStack       = [];
+
+// ── confirm cleanup ──────────────────────────────
+let confirmOkFn  = null;
+let confirmNopFn = null;
+
+// ═══════════════════════════════════════════════
+//  TINY HELPERS
+// ═══════════════════════════════════════════════
+const uid  = () => Math.random().toString(36).slice(2,9);
+const esc  = s  => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const base = p  => p ? p.replace(/\\/g,'/').split('/').pop() : '';
+const $    = id => document.getElementById(id);
+const on   = (id,ev,fn) => $(id).addEventListener(ev,fn);
+
+// ── toast ────────────────────────────────────────
+let toastTimer;
+function toast(msg){
+  clearTimeout(toastTimer);
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ── tag color ────────────────────────────────────
+function tagColor(tag){
+  if(!tagColorMap[tag]) tagColorMap[tag]=TAG_COLORS[tagColorIdx++%TAG_COLORS.length];
+  return tagColorMap[tag];
+}
+
+// ═══════════════════════════════════════════════
+//  UNSAVED
+// ═══════════════════════════════════════════════
+function markUnsaved(){
+  if(!$('board-wrap').classList.contains('visible')) return;
+  hasUnsaved=true;
+  $('unsaved-dot').style.display='block';
+  $('unsaved-label').style.display='block';
+}
+function markSaved(){
+  hasUnsaved=false;
+  $('unsaved-dot').style.display='none';
+  $('unsaved-label').style.display='none';
+}
+
+// ═══════════════════════════════════════════════
+//  UNDO / REDO
+//  Snapshot is just the serialized .txt string —
+//  tiny, already computed for saving anyway.
+// ═══════════════════════════════════════════════
+function snap(){ return serialize(); }
+
+function pushUndo(){
+  undoStack.push(snap());
+  if(undoStack.length>UNDO_LIMIT) undoStack.shift();
+  redoStack=[];
+  refreshUndoBadge();
+}
+
+function performUndo(){
+  if(!undoStack.length){ toast('Nothing to undo'); return; }
+  redoStack.push(snap());
+  restoreSnap(undoStack.pop());
+  markUnsaved(); refreshUndoBadge();
+  toast(`↩ Undo  (${undoStack.length} left)`);
+}
+function performRedo(){
+  if(!redoStack.length){ toast('Nothing to redo'); return; }
+  undoStack.push(snap());
+  restoreSnap(redoStack.pop());
+  markUnsaved(); refreshUndoBadge();
+  toast(`↪ Redo  (${redoStack.length} left)`);
+}
+function restoreSnap(txt){
+  const p=parseTxt(txt);
+  state.title=p.title; state.columns=p.columns; state.tasks=p.tasks;
+  $('board-title').textContent=state.title;
+  renderBoard();
+}
+function refreshUndoBadge(){
+  const b=$('undo-badge');
+  const vis=$('board-wrap').classList.contains('visible');
+  if(!vis||!undoStack.length){ b.style.display='none'; return; }
+  b.style.display='';
+  b.textContent=`↩ ${undoStack.length}`;
+  b.title=`${undoStack.length} undo step${undoStack.length!==1?'s':''}  ·  Ctrl+Z`;
+}
+
+// ═══════════════════════════════════════════════
+//  RECENT FILES
+// ═══════════════════════════════════════════════
+function getRecent(){ try{ return JSON.parse(localStorage.getItem(RECENT_KEY)||'[]'); }catch{ return []; } }
+function setRecent(l){ try{ localStorage.setItem(RECENT_KEY,JSON.stringify(l)); }catch{} }
+function addRecent(fp,fn){
+  let l=getRecent().filter(r=>r.path!==fp);
+  l.unshift({name:fn,path:fp,time:Date.now()});
+  if(l.length>MAX_RECENT) l=l.slice(0,MAX_RECENT);
+  setRecent(l); renderRecent();
+}
+function rmRecent(fp){ setRecent(getRecent().filter(r=>r.path!==fp)); renderRecent(); }
+
+function renderRecent(){
+  const list=getRecent(), el=$('recent-list');
+  if(!list.length){ el.innerHTML='<div class="recent-empty">No recent files yet</div>'; return; }
+  el.innerHTML='';
+  list.forEach(r=>{
+    const d=r.path&&r.path!==r.name ? r.path.replace(/\\/g,'/').split('/').slice(0,-1).join('/') : '';
+    const item=document.createElement('div');
+    item.className='recent-item';
+    item.dataset.rpath=r.path;
+    item.innerHTML=`<div class="recent-icon">📄</div>
+      <div class="recent-info">
+        <div class="recent-name">${esc(r.name)}</div>
+        ${d?`<div class="recent-path">${esc(d)}</div>`:''}
+        <div class="recent-meta">${relTime(r.time)}</div>
+      </div>
+      <button class="recent-del" data-rpath="${esc(r.path)}" title="Remove">×</button>`;
+    el.appendChild(item);
+  });
+}
+
+// delegation for recent-list (only two button types, no leak)
+$('recent-list').addEventListener('click', e=>{
+  const del=e.target.closest('.recent-del');
+  if(del){ e.stopPropagation(); rmRecent(del.dataset.rpath); return; }
+  const item=e.target.closest('.recent-item');
+  if(!item) return;
+  const rp=item.dataset.rpath;
+  const r=getRecent().find(x=>x.path===rp);
+  if(!r) return;
+  openRecentFile(r);
+});
+
+function openRecentFile(r){
+  const proceed=()=>{
+    if(!fsModule||!fsModule.existsSync(r.path)){ toast(`File not found: ${r.name}`); rmRecent(r.path); return; }
+    loadContent(fsModule.readFileSync(r.path,'utf8'), r.path, r.name);
+  };
+  if(hasUnsaved){
+    showConfirm({icon:'⚠️',message:'Open this file? Unsaved changes will be lost.',subject:r.name,confirmLabel:'Open Anyway',onConfirm:proceed});
+  } else proceed();
+}
+
+function relTime(ts){
+  const m=Math.floor((Date.now()-ts)/60000);
+  if(m<1) return 'just now'; if(m<60) return `${m}m ago`;
+  const h=Math.floor(m/60); if(h<24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+
+// ═══════════════════════════════════════════════
+//  CUSTOM CONFIRM
+//  Uses .onclick (not addEventListener) so there
+//  is exactly one handler at any time — no buildup
+// ═══════════════════════════════════════════════
+function showConfirm({icon='🗑',message='Are you sure?',subject='',confirmLabel='Delete',onConfirm,onCancel}={}){
+  $('confirm-icon').textContent=icon;
+  $('confirm-msg').textContent=message;
+  const sub=$('confirm-subject');
+  sub.textContent=subject; sub.style.display=subject?'inline-block':'none';
+  $('confirm-ok-btn').textContent=confirmLabel;
+  $('confirm-modal').classList.add('open');
+  // Replace handlers — no accumulation
+  $('confirm-ok-btn').onclick=()=>{ closeModal('confirm-modal'); onConfirm?.(); };
+  $('confirm-cancel-btn').onclick=()=>{ closeModal('confirm-modal'); onCancel?.(); };
+}
+
+// ═══════════════════════════════════════════════
+//  PARSE .TXT
+// ═══════════════════════════════════════════════
+function parseTxt(text){
+  const lines=text.split('\n');
+  const r={title:'Untitled Board',columns:[],tasks:[]};
+  let col=null, task=null, buf=[];
+  function flush(){ if(task&&col){ task.desc=buf.join('\n').trim(); r.tasks.push(task); } task=null; buf=[]; }
+  for(const raw of lines){
+    const line=raw.trimEnd();
+    if(/^# [^#]/.test(line)){ r.title=line.slice(2).trim(); }
+    else if(/^## [^#]/.test(line)){
+      flush();
+      col={id:uid(),name:line.slice(3).trim(),color:PALETTE[r.columns.length%PALETTE.length]};
+      r.columns.push(col);
+    } else if(/^; col-color\s+/i.test(line)&&col){
+      const m=line.match(/#[0-9a-fA-F]{3,6}/); if(m) col.color=m[0];
+    } else if(/^### /.test(line)){
+      flush();
+      if(!col){ col={id:uid(),name:'General',color:PALETTE[0]}; r.columns.push(col); }
+      task={id:uid(),title:line.slice(4).trim(),desc:'',tags:[],priority:'',colId:col.id};
+    } else if(task){
+      const tm=line.match(/@(\w+)/g), pm=line.match(/!(high|med|low)/i);
+      if(tm||pm){
+        if(tm) task.tags=[...new Set([...task.tags,...tm.map(t=>t.slice(1))])];
+        if(pm) task.priority=pm[1].toLowerCase();
+        const cl=line.replace(/@\w+/g,'').replace(/!(high|med|low)/gi,'').trim();
+        if(cl) buf.push(cl);
+      } else if(line.trim()) buf.push(line);
+    }
+  }
+  flush(); return r;
+}
+
+// ═══════════════════════════════════════════════
+//  SERIALIZE
+// ═══════════════════════════════════════════════
+function serialize(){
+  let o=`# ${state.title}\n\n`;
+  for(const col of state.columns){
+    o+=`## ${col.name}\n`;
+    if(col.color) o+=`; col-color ${col.color}\n`;
+    for(const t of state.tasks.filter(t=>t.colId===col.id)){
+      o+=`### ${t.title}\n`;
+      if(t.desc) o+=`${t.desc}\n`;
+      const m=[...t.tags.map(x=>`@${x}`),t.priority?`!${t.priority}`:''].filter(Boolean).join(' ');
+      if(m) o+=`${m}\n`;
+      o+='\n';
+    }
+    o+='\n';
+  }
+  return o.trim()+'\n';
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER BOARD
+//  Strategy: diff by colId. Reuse existing column
+//  DOM nodes when possible; only create/remove what
+//  changed. Inside each column, same diff by taskId.
+//  This eliminates the innerHTML='' listener leak.
+// ═══════════════════════════════════════════════
+function renderBoard(){
+  const board=$('board');
+
+  // Build index of existing column nodes
+  const existingCols={};
+  board.querySelectorAll('.column[data-col-id]').forEach(el=>{
+    existingCols[el.dataset.colId]=el;
+  });
+
+  const wantedColIds=new Set(state.columns.map(c=>c.id));
+
+  // Remove columns no longer in state
+  for(const id in existingCols){
+    if(!wantedColIds.has(id)) existingCols[id].remove();
+  }
+
+  // Upsert columns in correct order
+  let refNode=null; // we insert before the add-col-btn
+  let addBtn=board.querySelector('.add-col-btn');
+
+  state.columns.forEach(col=>{
+    let colEl=existingCols[col.id];
+    if(!colEl){
+      colEl=buildColElement(col);
+    } else {
+      updateColElement(colEl, col);
+    }
+    // Ensure correct order relative to the add-col-btn
+    board.insertBefore(colEl, addBtn);
+
+    // Sync tasks inside this column
+    syncTasks(colEl, col);
+  });
+
+  // Ensure add-col-btn exists and is last
+  if(!addBtn){
+    addBtn=document.createElement('button');
+    addBtn.className='add-col-btn';
+    addBtn.textContent='+ Add Column';
+    // single delegated listener on board handles this click — but it's a
+    // standalone button so one direct listener is fine (never recreated)
+    addBtn.addEventListener('click', openColModal);
+    board.appendChild(addBtn);
+  }
+
+  updateTaskCount();
+  updateColSelect();
+}
+
+// Build a brand-new column element — called only when the column is new
+function buildColElement(col){
+  const el=document.createElement('div');
+  el.className='column';
+  el.dataset.colId=col.id;
+  el.innerHTML=colHTML(col);
+  wireColListeners(el, col);
+  return el;
+}
+
+function colHTML(col){
+  return `<div class="col-header">
+    <div class="col-drag-handle" data-action="col-drag"><span></span><span></span><span></span></div>
+    <button class="col-color-btn" data-action="col-color" style="background:${esc(col.color||'#888')}" title="Change color"></button>
+    <div class="col-name" contenteditable="true" spellcheck="false">${esc(col.name)}</div>
+    <div class="col-count">0</div>
+    <button class="col-del" data-action="col-del" title="Delete column">×</button>
+  </div>
+  <div class="col-tasks" data-col-id="${col.id}"></div>
+  <button class="col-add-btn" data-action="col-add-task">+ Add task</button>`;
+}
+
+// Update mutable parts of an existing column node — no listener re-attachment
+function updateColElement(el, col){
+  el.style.setProperty('--col-color', col.color||'#888');
+  const nameEl=el.querySelector('.col-name');
+  // Only update DOM text if it differs (avoid caret loss while editing)
+  if(nameEl!==document.activeElement && nameEl.textContent!==col.name){
+    nameEl.textContent=col.name;
+  }
+  const cb=el.querySelector('.col-color-btn');
+  cb.style.background=col.color||'#888';
+}
+
+// Wire column-level event listeners ONCE per column element.
+// Uses data-action so we attach only one click handler per column.
+function wireColListeners(el, col){
+  el.style.setProperty('--col-color', col.color||'#888');
+
+  // Single click handler for the whole column header area
+  el.querySelector('.col-header').addEventListener('click', e=>{
+    const action=e.target.closest('[data-action]')?.dataset.action;
+    if(action==='col-color'){ e.stopPropagation(); openColColorPopover(col,el); }
+    else if(action==='col-del'){ deleteCol(col); }
+  });
+
+  el.querySelector('.col-add-btn').addEventListener('click',()=>openTaskModal(null,col.id));
+
+  // Column name rename — blur only
+  const nameEl=el.querySelector('.col-name');
+  nameEl.addEventListener('blur',()=>{
+    const v=nameEl.textContent.trim();
+    if(v&&v!==col.name){ pushUndo(); col.name=v; markUnsaved(); updateColSelect(); }
+  });
+  nameEl.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();nameEl.blur();} });
+
+  // Drag handle
+  el.querySelector('.col-drag-handle').addEventListener('pointerdown',e=>{
+    e.stopPropagation(); startDrag(e,'col',col.id,el);
+  });
+}
+
+function deleteCol(col){
+  showConfirm({icon:'🗂️',message:'Delete this column and all its tasks?',subject:col.name,confirmLabel:'Delete Column',
+    onConfirm:()=>{
+      pushUndo();
+      state.tasks=state.tasks.filter(t=>t.colId!==col.id);
+      state.columns=state.columns.filter(c=>c.id!==col.id);
+      renderBoard(); markUnsaved();
+    }
+  });
+}
+
+// Sync tasks inside a column element — diff by taskId
+function syncTasks(colEl, col){
+  const container=colEl.querySelector('.col-tasks');
+  const tasks=state.tasks.filter(t=>t.colId===col.id);
+
+  const existingCards={};
+  container.querySelectorAll('.task-card[data-task-id]').forEach(el=>{
+    existingCards[el.dataset.taskId]=el;
+  });
+
+  const wantedIds=new Set(tasks.map(t=>t.id));
+  for(const id in existingCards){
+    if(!wantedIds.has(id)) existingCards[id].remove();
+  }
+
+  tasks.forEach(task=>{
+    let cardEl=existingCards[task.id];
+    if(!cardEl){
+      cardEl=buildCardElement(task, col.color);
+    } else {
+      updateCardElement(cardEl, task, col.color);
+    }
+    container.appendChild(cardEl); // maintains order (appending in state order)
+  });
+
+  colEl.querySelector('.col-count').textContent=tasks.length;
+}
+
+function buildCardElement(task, colColor){
+  const el=document.createElement('div');
+  el.className='task-card';
+  el.dataset.taskId=task.id;
+  el.innerHTML=cardHTML(task);
+  wireCardListeners(el, task);
+  if(colColor) el.style.setProperty('--col-color',colColor);
+  return el;
+}
+
+function updateCardElement(el, task, colColor){
+  // Re-render inner HTML only (cheaper than full remove+create; no listener leak
+  // because the listeners are on the card element itself which persists)
+  el.innerHTML=cardHTML(task);
+  wireCardListeners(el, task);
+  if(colColor) el.style.setProperty('--col-color',colColor);
+}
+
+function cardHTML(task){
+  const priLabels={high:'⬆ HIGH',med:'● MED',low:'⬇ LOW'};
+  const pri=task.priority?`<div class="task-priority priority-${task.priority}">${priLabels[task.priority]}</div>`:'';
+  const tags=task.tags.map(t=>`<span class="tag ${tagColor(t)}">@${esc(t)}</span>`).join('');
+  const desc=task.desc?`<div class="task-desc-preview">${esc(task.desc)}</div>`:'';
+  return `<div class="task-col-bar"></div>
+    <div class="task-drag-handle" title="Drag to reorder"><span></span><span></span><span></span></div>
+    <div class="task-body">
+      ${pri}
+      <div class="task-title"${task.priority?' style="padding-right:52px"':''}>${esc(task.title)}</div>
+      ${desc}
+      ${tags?`<div class="task-tags">${tags}</div>`:''}
+    </div>
+    <button class="task-del" data-action="task-del" title="Delete">🗑</button>`;
+}
+
+function wireCardListeners(el, task){
+  // dblclick → detail
+  el.addEventListener('dblclick', e=>{
+    if(e.target.closest('.task-drag-handle,.task-del')) return;
+    window.getSelection()?.removeAllRanges();
+    openDetailModal(task.id);
+  });
+  // delete button
+  el.querySelector('.task-del').onclick=e=>{
+    e.stopPropagation();
+    showConfirm({icon:'🗑',message:'Delete this task?',subject:task.title,confirmLabel:'Delete Task',
+      onConfirm:()=>{ pushUndo(); state.tasks=state.tasks.filter(t=>t.id!==task.id); renderBoard(); markUnsaved(); toast('Task deleted'); }
+    });
+  };
+  // drag handle
+  el.querySelector('.task-drag-handle').addEventListener('pointerdown',e=>{
+    e.stopPropagation(); startDrag(e,'task',task.id,el);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  COLOR POPOVER
+//  One document click-outside listener, removed
+//  immediately when the popover closes.
+// ═══════════════════════════════════════════════
+function openColColorPopover(col, colEl){
+  if(activePopover){ activePopover.remove(); activePopover=null; }
+  const header=colEl.querySelector('.col-header');
+  const colorBtn=colEl.querySelector('.col-color-btn');
+
+  const pop=document.createElement('div');
+  pop.className='col-color-popover';
+
+  const grid=document.createElement('div'); grid.className='palette-grid';
+  PALETTE.forEach(hex=>{
+    const sw=document.createElement('div');
+    sw.className='p-swatch'+(col.color===hex?' selected':'');
+    sw.style.background=hex;
+    sw.addEventListener('click',e=>{
+      e.stopPropagation();
+      applyColColor(col,colEl,colorBtn,hex);
+      grid.querySelectorAll('.p-swatch').forEach(s=>s.classList.remove('selected'));
+      sw.classList.add('selected');
+      customInp.value=hex;
+    });
+    grid.appendChild(sw);
+  });
+
+  const customRow=document.createElement('div'); customRow.className='pop-custom';
+  const lbl=document.createElement('label'); lbl.textContent='Custom';
+  const customInp=document.createElement('input');
+  customInp.type='color'; customInp.value=col.color||PALETTE[0];
+  customInp.addEventListener('input',e=>{
+    e.stopPropagation();
+    applyColColor(col,colEl,colorBtn,customInp.value);
+    grid.querySelectorAll('.p-swatch').forEach(s=>s.classList.remove('selected'));
+  });
+  customRow.append(lbl,customInp);
+  pop.append(grid,customRow);
+  header.appendChild(pop);
+  activePopover=pop;
+
+  // one-shot outside-click listener — always removed on first trigger
+  const outsideH=e=>{
+    if(!pop.contains(e.target)&&e.target!==colorBtn){
+      pop.remove(); activePopover=null;
+      document.removeEventListener('click',outsideH);
+    }
+  };
+  // defer so the current click doesn't instantly close it
+  setTimeout(()=>document.addEventListener('click',outsideH),0);
+}
+
+function applyColColor(col, colEl, colorBtn, hex){
+  pushUndo();
+  col.color=hex;
+  colEl.style.setProperty('--col-color',hex);
+  colorBtn.style.background=hex;
+  // update task cards' left bar in this column
+  colEl.querySelectorAll('.task-card').forEach(c=>c.style.setProperty('--col-color',hex));
+  markUnsaved();
+}
+
+// ═══════════════════════════════════════════════
+//  DRAG SYSTEM (pointer-based, no HTML5 drag API)
+// ═══════════════════════════════════════════════
+const ghost=$('drag-ghost');
+let drag=null;
+
+function startDrag(e,type,id,srcEl){
+  e.preventDefault();
+  const rect=srcEl.getBoundingClientRect();
+  // ghost: shallow visual clone only — strip event-bearing child nodes
+  ghost.style.cssText=`display:block;width:${rect.width}px;left:${e.clientX-(e.clientX-rect.left)}px;top:${e.clientY-(e.clientY-rect.top)}px`;
+  ghost.innerHTML=srcEl.outerHTML; // outerHTML = static string, no listeners
+  ghost.firstElementChild && (ghost.firstElementChild.style.cssText=`width:${rect.width}px;pointer-events:none;margin:0`);
+  drag={type,id,offsetX:e.clientX-rect.left,offsetY:e.clientY-rect.top};
+  srcEl.classList.add(type==='task'?'is-dragging-task':'is-dragging-col');
+  moveGhost(e);
+  document.addEventListener('pointermove',onPMove,{passive:false});
+  document.addEventListener('pointerup',onPUp);
+  document.addEventListener('pointercancel',onPUp);
+}
+
+function moveGhost(e){
+  ghost.style.left=(e.clientX-drag.offsetX)+'px';
+  ghost.style.top =(e.clientY-drag.offsetY)+'px';
+}
+
+function onPMove(e){
+  if(!drag) return;
+  e.preventDefault();
+  moveGhost(e);
+  clearDrop();
+  ghost.style.display='none';
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  ghost.style.display='block';
+  if(!el) return;
+  if(drag.type==='task'){
+    const oc=el.closest('.task-card'), ocol=el.closest('.column');
+    if(oc&&oc.dataset.taskId!==drag.id){
+      const r=oc.getBoundingClientRect();
+      oc.classList.add(e.clientY<r.top+r.height/2?'task-drop-above':'task-drop-below');
+    } else if(ocol&&!oc) ocol.classList.add('col-drop-target');
+  } else {
+    const ocol=el.closest('.column');
+    if(ocol&&ocol.dataset.colId!==drag.id) ocol.classList.add('col-drop-target');
+  }
+}
+
+function clearDrop(){
+  document.querySelectorAll('.task-drop-above,.task-drop-below,.col-drop-target')
+    .forEach(el=>el.classList.remove('task-drop-above','task-drop-below','col-drop-target'));
+}
+
+function onPUp(e){
+  document.removeEventListener('pointermove',onPMove);
+  document.removeEventListener('pointerup',onPUp);
+  document.removeEventListener('pointercancel',onPUp);
+  if(!drag) return;
+  ghost.style.display='none';
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const srcSel=drag.type==='task'?`.task-card[data-task-id="${drag.id}"]`:`.column[data-col-id="${drag.id}"]`;
+  document.querySelector(srcSel)?.classList.remove(drag.type==='task'?'is-dragging-task':'is-dragging-col');
+  clearDrop();
+  if(el){
+    if(drag.type==='task'){
+      const oc=el.closest('.task-card'), ocol=el.closest('.column');
+      if(oc&&oc.dataset.taskId!==drag.id){
+        const r=oc.getBoundingClientRect();
+        reorderTask(drag.id,oc.dataset.taskId,e.clientY<r.top+r.height/2);
+      } else if(ocol&&!oc) moveTaskToCol(drag.id,ocol.dataset.colId);
+    } else {
+      const ocol=el.closest('.column');
+      if(ocol&&ocol.dataset.colId!==drag.id) reorderCol(drag.id,ocol.dataset.colId);
+    }
+  }
+  drag=null;
+}
+
+function reorderTask(fromId,toId,before){
+  const fi=state.tasks.findIndex(t=>t.id===fromId);
+  const ti=state.tasks.findIndex(t=>t.id===toId);
+  if(fi===-1||ti===-1) return;
+  const toCol=state.tasks[ti].colId;
+  pushUndo();
+  const [m]=state.tasks.splice(fi,1); m.colId=toCol;
+  const ni=state.tasks.findIndex(t=>t.id===toId);
+  state.tasks.splice(before?ni:ni+1,0,m);
+  renderBoard(); markUnsaved();
+}
+function moveTaskToCol(taskId,colId){
+  const t=state.tasks.find(t=>t.id===taskId);
+  if(t&&t.colId!==colId){ pushUndo(); t.colId=colId; renderBoard(); markUnsaved(); }
+}
+function reorderCol(fromId,toId){
+  const fi=state.columns.findIndex(c=>c.id===fromId);
+  const ti=state.columns.findIndex(c=>c.id===toId);
+  if(fi===-1||ti===-1) return;
+  pushUndo();
+  const [m]=state.columns.splice(fi,1);
+  state.columns.splice(ti,0,m);
+  renderBoard(); markUnsaved();
+}
+
+// ═══════════════════════════════════════════════
+//  DETAIL MODAL
+// ═══════════════════════════════════════════════
+function openDetailModal(taskId){
+  detailTaskId=taskId;
+  const task=state.tasks.find(t=>t.id===taskId); if(!task) return;
+  const col=state.columns.find(c=>c.id===task.colId);
+  const chip=$('detail-col-chip');
+  chip.textContent=col?col.name:'—';
+  chip.style.setProperty('--chip-color',col?.color||'#888');
+  $('detail-title').textContent=task.title;
+  const de=$('detail-desc');
+  if(task.desc){de.textContent=task.desc;de.style.display='';}else de.style.display='none';
+  const me=$('detail-meta'); me.innerHTML='';
+  if(task.priority){
+    const pl={high:'⬆ High',med:'● Medium',low:'⬇ Low'};
+    const b=document.createElement('span');
+    b.className=`tag priority-${task.priority}`;
+    b.style.cssText='font-family:"DM Mono",monospace;font-size:.66rem;font-weight:700';
+    b.textContent=pl[task.priority]; me.appendChild(b);
+  }
+  task.tags.forEach(t=>{
+    const s=document.createElement('span'); s.className=`tag ${tagColor(t)}`; s.textContent=`@${t}`; me.appendChild(s);
+  });
+  openModal('detail-modal');
+}
+
+on('detail-close','click',()=>closeModal('detail-modal'));
+on('detail-edit','click',()=>{
+  closeModal('detail-modal');
+  openTaskModal(detailTaskId, null);
+});
+on('detail-delete','click',()=>{
+  const task=state.tasks.find(t=>t.id===detailTaskId); if(!task) return;
+  closeModal('detail-modal');
+  showConfirm({icon:'🗑',message:'Delete this task?',subject:task.title,confirmLabel:'Delete Task',
+    onConfirm:()=>{ pushUndo(); state.tasks=state.tasks.filter(t=>t.id!==detailTaskId); renderBoard(); markUnsaved(); toast('Task deleted'); }
+  });
+});
+
+// ═══════════════════════════════════════════════
+//  TASK MODAL
+// ═══════════════════════════════════════════════
+function openTaskModal(taskId, colId){
+  editingTaskId=taskId&&state.tasks.find(t=>t.id===taskId)?taskId:null;
+  updateColSelect();
+  if(editingTaskId){
+    const t=state.tasks.find(t=>t.id===editingTaskId);
+    $('task-modal-title').textContent='Edit Task';
+    $('t-title').value=t.title; $('t-desc').value=t.desc||'';
+    $('t-col').value=t.colId; $('t-priority').value=t.priority||'';
+    $('t-tags').value=t.tags.join(' ');
+    $('task-save').textContent='Save Changes';
+  } else {
+    $('task-modal-title').textContent='New Task';
+    $('t-title').value=''; $('t-desc').value='';
+    $('t-priority').value=''; $('t-tags').value='';
+    $('task-save').textContent='Add Task';
+    const tgt=colId||state.columns[0]?.id;
+    if(tgt) $('t-col').value=tgt;
+  }
+  openModal('task-modal');
+  setTimeout(()=>$('t-title').focus(),60);
+}
+on('btn-add-task','click',()=>openTaskModal(null,null));
+on('task-cancel','click',()=>closeModal('task-modal'));
+on('task-save','click',()=>{
+  const title=$('t-title').value.trim(); if(!title){$('t-title').focus();return;}
+  const payload={title,desc:$('t-desc').value.trim(),tags:$('t-tags').value.trim().split(/\s+/).filter(Boolean),priority:$('t-priority').value,colId:$('t-col').value};
+  if(editingTaskId){
+    const i=state.tasks.findIndex(t=>t.id===editingTaskId);
+    if(i!==-1){pushUndo();Object.assign(state.tasks[i],payload);}
+    toast('Task updated');
+  } else {
+    pushUndo(); state.tasks.push({id:uid(),...payload}); toast(`"${title}" added`);
+  }
+  closeModal('task-modal'); renderBoard(); markUnsaved();
+});
+$('t-title').addEventListener('keydown',e=>{if(e.key==='Enter')$('task-save').click();});
+
+// ═══════════════════════════════════════════════
+//  COLUMN MODAL
+// ═══════════════════════════════════════════════
+function openColModal(){
+  buildModalPalette(); $('c-name').value='';
+  openModal('col-modal'); setTimeout(()=>$('c-name').focus(),60);
+}
+on('btn-add-col','click',openColModal);
+on('col-cancel','click',()=>closeModal('col-modal'));
+on('col-save','click',()=>{
+  const name=$('c-name').value.trim(); if(!name){$('c-name').focus();return;}
+  pushUndo(); state.columns.push({id:uid(),name,color:selectedColColor});
+  closeModal('col-modal'); renderBoard(); markUnsaved(); toast(`Column "${name}" added`);
+});
+$('c-name').addEventListener('keydown',e=>{if(e.key==='Enter')$('col-save').click();});
+
+function buildModalPalette(){
+  selectedColColor=PALETTE[0];
+  const grid=$('modal-palette'); grid.innerHTML='';
+  PALETTE.forEach((hex,i)=>{
+    const sw=document.createElement('div');
+    sw.className='p-swatch'+(i===0?' selected':''); sw.style.background=hex;
+    sw.addEventListener('click',()=>{
+      selectedColColor=hex; $('modal-custom-color').value=hex; $('modal-color-preview').style.background=hex;
+      grid.querySelectorAll('.p-swatch').forEach(s=>s.classList.remove('selected')); sw.classList.add('selected');
+    });
+    grid.appendChild(sw);
+  });
+  $('modal-custom-color').value=PALETTE[0]; $('modal-color-preview').style.background=PALETTE[0];
+}
+$('modal-custom-color').addEventListener('input',e=>{
+  selectedColColor=e.target.value; $('modal-color-preview').style.background=e.target.value;
+  $('modal-palette').querySelectorAll('.p-swatch').forEach(s=>s.classList.remove('selected'));
+});
+
+// ═══════════════════════════════════════════════
+//  NEW BOARD MODAL
+// ═══════════════════════════════════════════════
+function openNewBoardModal(){
+  $('nb-name').value=''; openModal('newboard-modal'); setTimeout(()=>$('nb-name').focus(),60);
+}
+function createNewBoard(){
+  const name=$('nb-name').value.trim()||'My Project';
+  closeModal('newboard-modal');
+  undoStack=[]; redoStack=[];
+  state={title:name,columns:[
+    {id:uid(),name:'Not Started',color:PALETTE[0]},
+    {id:uid(),name:'In Progress',color:PALETTE[1]},
+    {id:uid(),name:'Completed',  color:PALETTE[4]}
+  ],tasks:[]};
+  currentFilePath=null;
+  currentFileName=name.replace(/[^a-z0-9]/gi,'_').toLowerCase()+'.txt';
+  $('file-badge').textContent=currentFileName; $('file-badge').style.display='';
+  markSaved(); refreshUndoBadge(); showBoard(); toast('New board created');
+}
+on('nb-cancel','click',()=>closeModal('newboard-modal'));
+on('nb-create','click',createNewBoard);
+$('nb-name').addEventListener('keydown',e=>{if(e.key==='Enter')createNewBoard();});
+on('btn-create-new','click',()=>{
+  if(hasUnsaved) showConfirm({icon:'⚠️',message:'Create a new board? Unsaved changes will be lost.',confirmLabel:'Discard & Continue',onConfirm:openNewBoardModal});
+  else openNewBoardModal();
+});
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function updateTaskCount(){
+  const n=state.tasks.length;
+  $('task-count').textContent=`${n} task${n!==1?'s':''}`;
+}
+function updateColSelect(){
+  $('t-col').innerHTML=state.columns.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+}
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+
+// Backdrop close — one delegated listener on document
+document.addEventListener('click',e=>{
+  if(!e.target.classList.contains('modal-bg')) return;
+  e.target.classList.remove('open');
+});
+
+// ═══════════════════════════════════════════════
+//  SHOW / HIDE BOARD
+// ═══════════════════════════════════════════════
+function showBoard(){
+  closeModal('newboard-modal');
+  $('landing').classList.add('hidden');
+  $('board-wrap').classList.add('visible');
+  $('board-title').textContent=state.title;
+  ['btn-export','btn-preview','btn-add-task'].forEach(id=>$(id).style.display='');
+  // Make sure #board has the add-col-btn to start
+  if(!$('board').querySelector('.add-col-btn')){
+    const b=document.createElement('button');
+    b.className='add-col-btn'; b.textContent='+ Add Column';
+    b.addEventListener('click',openColModal);
+    $('board').appendChild(b);
+  }
+  renderBoard();
+}
+function goHome(){
+  // Close any open popover
+  if(activePopover){ activePopover.remove(); activePopover=null; }
+  $('landing').classList.remove('hidden');
+  $('board-wrap').classList.remove('visible');
+  ['btn-export','btn-preview','btn-add-task'].forEach(id=>$(id).style.display='none');
+  $('file-badge').style.display='none';
+  $('undo-badge').style.display='none';
+  markSaved(); renderRecent();
+}
+
+on('logo-home','click',()=>{
+  if(!$('board-wrap').classList.contains('visible')) return;
+  if(hasUnsaved) showConfirm({icon:'🏠',message:'Go home? Unsaved changes will be lost.',subject:currentFileName,confirmLabel:'Discard & Go Home',onConfirm:goHome});
+  else goHome();
+});
+
+// ═══════════════════════════════════════════════
+//  LOAD CONTENT
+// ═══════════════════════════════════════════════
+function loadContent(content, fp, fn){
+  const parsed=parseTxt(content);
+  state=parsed;
+  if(!state.columns.length) state.columns=[
+    {id:uid(),name:'Not Started',color:PALETTE[0]},
+    {id:uid(),name:'In Progress',color:PALETTE[1]},
+    {id:uid(),name:'Completed',  color:PALETTE[4]}
+  ];
+  currentFilePath=fp; currentFileName=fn;
+  undoStack=[]; redoStack=[];
+  $('file-badge').textContent=fn; $('file-badge').style.display='';
+  markSaved(); refreshUndoBadge();
+  addRecent(fp,fn); showBoard(); toast(`Loaded: ${fn}`);
+}
+
+// ═══════════════════════════════════════════════
+//  FILE I/O
+// ═══════════════════════════════════════════════
+async function openFile(){
+  const result=await ipcRenderer.invoke('dialog:open');
+  if(!result) return;
+  loadContent(result.content,result.filePath,base(result.filePath));
+}
+
+async function doSave(){
+  const content=serialize();
+  if(currentFilePath){
+    const res=await ipcRenderer.invoke('file:save',{filePath:currentFilePath,content});
+    if(res.ok){ markSaved(); addRecent(currentFilePath,currentFileName); toast(`Saved ✓  ${currentFileName}`); }
+    else toast('Save failed: '+res.error);
+  } else {
+    const sp=await ipcRenderer.invoke('dialog:saveAs',{suggestedName:currentFileName,content});
+    if(sp){
+      currentFilePath=sp; currentFileName=base(sp);
+      $('file-badge').textContent=currentFileName;
+      markSaved(); addRecent(currentFilePath,currentFileName); toast(`Saved ✓  ${currentFileName}`);
+    }
+  }
+}
+
+on('btn-pick-file','click',()=>{
+  if(hasUnsaved) showConfirm({icon:'⚠️',message:'Open a file? Unsaved changes will be lost.',confirmLabel:'Open Anyway',onConfirm:openFile});
+  else openFile();
+});
+on('btn-new','click',()=>{
+  if(hasUnsaved) showConfirm({icon:'⚠️',message:'Open a file? Unsaved changes will be lost.',confirmLabel:'Open Anyway',onConfirm:openFile});
+  else openFile();
+});
+
+// Drop onto landing
+const landingEl=$('landing');
+landingEl.addEventListener('dragover',e=>{e.preventDefault();landingEl.classList.add('drag-over');});
+landingEl.addEventListener('dragleave',()=>landingEl.classList.remove('drag-over'));
+landingEl.addEventListener('drop',e=>{
+  e.preventDefault(); landingEl.classList.remove('drag-over');
+  const file=e.dataTransfer.files[0];
+  if(file?.name.endsWith('.txt')){
+    const r=new FileReader();
+    r.onload=ev=>loadContent(ev.target.result,file.name,file.name);
+    r.readAsText(file);
+  } else toast('Please drop a .txt file');
+});
+
+// Preview
+on('btn-preview','click',()=>{ $('preview-content').textContent=serialize(); openModal('format-modal'); });
+on('preview-close','click',()=>closeModal('format-modal'));
+on('preview-save-btn','click',()=>{ closeModal('format-modal'); doSave(); });
+on('btn-export','click',doSave);
+
+// Electron close guard
+if(ipcRenderer){
+  ipcRenderer.on('app:closing',()=>{
+    if(hasUnsaved){
+      showConfirm({icon:'💾',message:'You have unsaved changes. Close anyway?',subject:currentFileName,
+        confirmLabel:'Close without saving',onConfirm:()=>ipcRenderer.send('app:confirm-close')});
+    } else ipcRenderer.send('app:confirm-close');
+  });
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  const onBoard=$('board-wrap').classList.contains('visible');
+  const inInput=e.target.matches('input,textarea,[contenteditable]');
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){ e.preventDefault(); if(onBoard) doSave(); return; }
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key==='z'){ if(inInput) return; e.preventDefault(); if(onBoard) performUndo(); return; }
+  if((e.ctrlKey||e.metaKey)&&(e.shiftKey&&e.key==='z'||e.key==='y')){ if(inInput) return; e.preventDefault(); if(onBoard) performRedo(); return; }
+});
+
+// Init
+renderRecent();
+</script>
+</body>
+</html>
